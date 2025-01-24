@@ -58,18 +58,19 @@ class NVDClient:
             """)
             self.db_conn.commit()
     def _check_existing_cves(self, query: str) -> set:
-        """Get existing CVE IDs from JSON files"""
+        """Get existing CVE IDs only for exact CVE matches"""
         existing_cves = set()
-        json_files = glob.glob('json/*.json')
-
-        for file in json_files:
-            try:
-                with open(file, 'r') as f:
-                    data = json.load(f)
-                    for vuln in data.get('vulnerabilities', []):
-                        existing_cves.add(vuln['cve']['id'])
-            except json.JSONDecodeError:
-                continue
+        if query and query.startswith('CVE-'):
+            json_files = glob.glob('json/*.json')
+            for file in json_files:
+                try:
+                    with open(file, 'r') as f:
+                        data = json.load(f)
+                        for vuln in data.get('vulnerabilities', []):
+                            if vuln['cve']['id'] == query:
+                                existing_cves.add(vuln['cve']['id'])
+                except json.JSONDecodeError:
+                    continue
         return existing_cves
 
     def search(self, query: str = None, page: int = 0) -> Dict:
@@ -80,28 +81,26 @@ class NVDClient:
 
         if query and query.startswith('CVE-'):
             params["cveId"] = query
+            existing_cves = self._check_existing_cves(query)
         elif query:
             params["keywordSearch"] = query
+            existing_cves = set()  # No filtering for keywords
 
         response = requests.get(BASE_URL, params=params, headers=self.headers)
         response.raise_for_status()
         data = response.json()
 
-        # Filter out duplicates
-        existing_cves = self._check_existing_cves(query)
-        filtered_vulns = [
-            vuln for vuln in data.get('vulnerabilities', [])
-            if vuln['cve']['id'] not in existing_cves
-        ]
+        if query and query.startswith('CVE-'):
+            filtered_vulns = [
+                vuln for vuln in data.get('vulnerabilities', [])
+                if vuln['cve']['id'] not in existing_cves
+            ]
+            data['vulnerabilities'] = filtered_vulns
 
-        # Update the data with filtered results
-        data['vulnerabilities'] = filtered_vulns
-
-        if filtered_vulns:  # Only save if we have new vulnerabilities
-            self._save_to_db(data)
-            self._save_to_json(data, query or 'latest')
-
+        self._save_to_db(data)
+        self._save_to_json(data, query or 'latest')
         return data
+
     def _save_to_db(self, data: Dict):
         with self.db_conn.cursor() as cur:
             for vuln in data.get('vulnerabilities', []):
