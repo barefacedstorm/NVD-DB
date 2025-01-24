@@ -3,94 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NVD Vulnerability Search</title>
+    <title>CVE Search</title>
     <style>
         :root {
             --bg-primary: #1a1a1a;
             --bg-secondary: #2d2d2d;
-            --text-primary: #ffffff;
+            --text: #ffffff;
             --accent: #00ff9d;
         }
 
         body {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
             margin: 0;
             padding: 20px;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-        }
-
-        .search-section {
-            background-color: var(--bg-secondary);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .search-box {
+            height: 100%;
             display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            padding: 10px;
-            background-color: var(--bg-primary);
-            border: 1px solid var(--accent);
-            color: var(--text-primary);
-            border-radius: 4px;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: var(--accent);
-            color: var(--bg-primary);
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .results {
-            background-color: var(--bg-secondary);
-            padding: 20px;
-            border-radius: 8px;
-        }
-
-        .vulnerability-card {
-            background-color: var(--bg-primary);
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            border-left: 4px solid var(--accent);
-        }
-
-        .severity-high {
-            border-left-color: #ff4444;
-        }
-
-        .severity-medium {
-            border-left-color: #ffbb33;
-        }
-
-        .severity-low {
-            border-left-color: #00C851;
-        }
-
-        .metadata {
-            font-size: 0.9em;
-            color: #888;
-            margin-bottom: 10px;
-        }
-
-        h1, h2 {
-            color: var(--accent);
+            flex-direction: column;
         }
 
         .tabs {
@@ -101,105 +38,238 @@
 
         .tab {
             padding: 10px 20px;
-            background-color: var(--bg-secondary);
-            cursor: pointer;
+            background: var(--bg-secondary);
+            color: var(--text);
             border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .tab.active {
-            background-color: var(--accent);
+            background: var(--accent);
             color: var(--bg-primary);
+        }
+
+        .search-box {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--accent);
+            color: var(--text);
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 255, 157, 0.2);
+        }
+
+        #results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            scroll-behavior: smooth;
+        }
+
+        .vulnerability-card {
+            background: var(--bg-secondary);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border-left: 4px solid var(--accent);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .severity-critical { border-left-color: #ff0000; }
+        .severity-high { border-left-color: #ff4444; }
+        .severity-medium { border-left-color: #ffbb33; }
+        .severity-low { border-left-color: #00C851; }
+
+        h1 {
+            color: var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--accent);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>NVD Vulnerability Search</h1>
+        <h1>CVE Search</h1>
 
         <div class="tabs">
             <div class="tab active" onclick="switchTab('live')">Live Search</div>
-            <div class="tab" onclick="switchTab('local')">Local JSON Search</div>
+            <div class="tab" onclick="switchTab('local')">Historical Search</div>
         </div>
 
-        <div id="liveSearch" class="search-section">
-            <div class="search-box">
-                <input type="text" id="cveSearch" placeholder="Enter CVE ID (e.g., CVE-2021-44228)">
-                <button onclick="searchCVE()">Search CVE</button>
-            </div>
-            <div class="search-box">
-                <input type="text" id="keywordSearch" placeholder="Enter keyword (e.g., remote code execution)">
-                <button onclick="searchKeyword()">Search Keyword</button>
-            </div>
+        <div id="liveSearch" class="search-box">
+            <input type="text" id="searchInput" placeholder="Search live CVE database" onkeyup="debounceSearch(event)">
+            <button onclick="search()">Search</button>
         </div>
 
-        <div id="localSearch" class="search-section" style="display: none;">
-            <div class="search-box">
-                <input type="text" id="localSearchInput" placeholder="Search in saved JSON files">
-                <button onclick="searchLocal()">Search Local Data</button>
-            </div>
+        <div id="localSearch" class="search-box" style="display: none;">
+            <input type="text" id="localSearchInput" placeholder="Search historical CVE data" onkeyup="debounceLocalSearch(event)">
+            <button onclick="searchLocal()">Search</button>
         </div>
 
-        <div class="results" id="results">
-            <!-- Results will be dynamically inserted here -->
-        </div>
+        <div id="results"></div>
     </div>
 
     <script>
+        let isLoading = false;
+        let currentPage = 0;
+        let searchTimeout;
+        let localSearchTimeout;
+
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
 
-            if (tab === 'live') {
-                document.getElementById('liveSearch').style.display = 'block';
-                document.getElementById('localSearch').style.display = 'none';
-            } else {
-                document.getElementById('liveSearch').style.display = 'none';
-                document.getElementById('localSearch').style.display = 'block';
+            document.getElementById('liveSearch').style.display = tab === 'live' ? 'flex' : 'none';
+            document.getElementById('localSearch').style.display = tab === 'local' ? 'flex' : 'none';
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function debounceSearch(event) {
+            if (event.key === 'Enter') {
+                search();
+                return;
             }
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => search(), 500);
         }
 
-        function displayResults(data) {
+        function debounceLocalSearch(event) {
+            if (event.key === 'Enter') {
+                searchLocal();
+                return;
+            }
+            clearTimeout(localSearchTimeout);
+            localSearchTimeout = setTimeout(() => searchLocal(), 500);
+        }
+
+        async function search(append = false) {
+            if (isLoading) return;
+
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            isLoading = true;
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '';
 
-            data.vulnerabilities.forEach(vuln => {
-                const severity = vuln.cve.metrics?.cvssMetrics?.[0]?.severity || 'UNKNOWN';
-                const card = document.createElement('div');
-                card.className = `vulnerability-card severity-${severity.toLowerCase()}`;
+            if (!append) {
+                currentPage = 0;
+                resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+            } else {
+                resultsDiv.insertAdjacentHTML('beforeend', '<div class="loading">Loading more...</div>');
+            }
 
-                card.innerHTML = `
-                    <h2>${vuln.cve.id}</h2>
-                    <div class="metadata">
-                        Published: ${vuln.cve.published}<br>
-                        Severity: ${severity}
-                    </div>
-                    <p>${vuln.cve.descriptions[0].value}</p>
-                `;
+            try {
+                const response = await fetch(`/api/search?query=${query}&page=${currentPage}`);
+                const data = await response.json();
 
-                resultsDiv.appendChild(card);
-            });
-        }
+                if (!append) {
+                    resultsDiv.innerHTML = '';
+                } else {
+                    resultsDiv.removeChild(resultsDiv.lastChild);
+                }
 
-        async function searchCVE() {
-            const cveId = document.getElementById('cveSearch').value;
-            const response = await fetch(`/api/search?cve_id=${cveId}`);
-            const data = await response.json();
-            displayResults(data);
-        }
+                displayResults(data, append);
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
 
-        async function searchKeyword() {
-            const keyword = document.getElementById('keywordSearch').value;
-            const response = await fetch(`/api/search?keyword=${keyword}`);
-            const data = await response.json();
-            displayResults(data);
+            isLoading = false;
         }
 
         async function searchLocal() {
-            const searchTerm = document.getElementById('localSearchInput').value;
-            const response = await fetch(`/api/local-search?term=${searchTerm}`);
-            const data = await response.json();
-            displayResults(data);
+            const term = document.getElementById('localSearchInput').value;
+            if (!term) return;
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Searching local data...</div>';
+
+            try {
+                const response = await fetch(`/api/local-search?term=${term}`);
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
         }
+
+        function displayResults(data, append = false) {
+            const resultsDiv = document.getElementById('results');
+
+            if (!append) {
+                resultsDiv.innerHTML = '';
+            }
+
+            if (data.vulnerabilities) {
+                data.vulnerabilities.forEach((vuln, index) => {
+                    const severity = vuln.cve.metrics?.cvssMetrics?.[0]?.severity || 'UNKNOWN';
+                    const card = document.createElement('div');
+                    card.className = `vulnerability-card severity-${severity.toLowerCase()}`;
+                    card.style.animationDelay = `${index * 0.1}s`;
+
+                    card.innerHTML = `
+                        <h2>${vuln.cve.id}</h2>
+                        <div class="metadata">
+                            Published: ${vuln.cve.published}
+                            <br>
+                            Severity: ${severity}
+                        </div>
+                        <p>${vuln.cve.descriptions[0].value}</p>
+                    `;
+
+                    resultsDiv.appendChild(card);
+                });
+            }
+        }
+
+        // Infinite scroll
+        document.getElementById('results').addEventListener('scroll', function(e) {
+            const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 100;
+            if (bottom && !isLoading) {
+                currentPage++;
+                search(true);
+            }
+        });
     </script>
 </body>
 </html>
