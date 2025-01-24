@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVD Vulnerability Search</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --accent: #00ff9d;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .search-section {
+            background-color: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--accent);
+            color: var(--text-primary);
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .results {
+            background-color: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .vulnerability-card {
+            background-color: var(--bg-primary);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .severity-high {
+            border-left-color: #ff4444;
+        }
+
+        .severity-medium {
+            border-left-color: #ffbb33;
+        }
+
+        .severity-low {
+            border-left-color: #00C851;
+        }
+
+        .metadata {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        h1, h2 {
+            color: var(--accent);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background-color: var(--bg-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .tab.active {
+            background-color: var(--accent);
+            color: var(--bg-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NVD Vulnerability Search</h1>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('live')">Live Search</div>
+            <div class="tab" onclick="switchTab('local')">Local JSON Search</div>
+        </div>
+
+        <div id="liveSearch" class="search-section">
+            <div class="search-box">
+                <input type="text" id="cveSearch" placeholder="Enter CVE ID (e.g., CVE-2021-44228)">
+                <button onclick="searchCVE()">Search CVE</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="keywordSearch" placeholder="Enter keyword (e.g., remote code execution)">
+                <button onclick="searchKeyword()">Search Keyword</button>
+            </div>
+        </div>
+
+        <div id="localSearch" class="search-section" style="display: none;">
+            <div class="search-box">
+                <input type="text" id="localSearchInput" placeholder="Search in saved JSON files">
+                <button onclick="searchLocal()">Search Local Data</button>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            if (tab === 'live') {
+                document.getElementById('liveSearch').style.display = 'block';
+                document.getElementById('localSearch').style.display = 'none';
+            } else {
+                document.getElementById('liveSearch').style.display = 'none';
+                document.getElementById('localSearch').style.display = 'block';
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            data.vulnerabilities.forEach(vuln => {
+                const severity = vuln.cve.metrics?.cvssMetrics?.[0]?.severity || 'UNKNOWN';
+                const card = document.createElement('div');
+                card.className = `vulnerability-card severity-${severity.toLowerCase()}`;
+
+                card.innerHTML = `
+                    <h2>${vuln.cve.id}</h2>
+                    <div class="metadata">
+                        Published: ${vuln.cve.published}<br>
+                        Severity: ${severity}
+                    </div>
+                    <p>${vuln.cve.descriptions[0].value}</p>
+                `;
+
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        async function searchCVE() {
+            const cveId = document.getElementById('cveSearch').value;
+            const response = await fetch(`/api/search?cve_id=${cveId}`);
+            const data = await response.json();
+            displayResults(data);
+        }
+
+        async function searchKeyword() {
+            const keyword = document.getElementById('keywordSearch').value;
+            const response = await fetch(`/api/search?keyword=${keyword}`);
+            const data = await response.json();
+            displayResults(data);
+        }
+
+        async function searchLocal() {
+            const searchTerm = document.getElementById('localSearchInput').value;
+            const response = await fetch(`/api/local-search?term=${searchTerm}`);
+            const data = await response.json();
+            displayResults(data);
+        }
+    </script>
+</body>
+</html>
